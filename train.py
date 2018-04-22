@@ -18,6 +18,8 @@ port = "/dev/tty.HC-05-DevB"  # This will be different for various devices and o
 bluetooth = serial.Serial(port, 9600)  # Start communications with the bluetooth unit
 print("Connected")
 
+MAX_RANGE = 4000.0
+
 
 # Deep Q-learning Agent
 class DQNAgent:
@@ -26,9 +28,9 @@ class DQNAgent:
         self.action_size = action_size
         self.memory = deque(maxlen=2000)
         self.gamma = 0.95  # discount rate
-        self.epsilon = 0.01  # exploration rate
+        self.epsilon = 0.2939294464899635  # exploration rate
         self.epsilon_min = 0.01
-        self.epsilon_decay = 0.995
+        self.epsilon_decay = 0.99995
         self.learning_rate = 0.001
         if Path("model.json").is_file():
             self.model = self.load()
@@ -38,8 +40,8 @@ class DQNAgent:
     def _build_model(self):
         # Neural Net for Deep-Q learning Model
         model = Sequential()
-        model.add(Dense(24, input_dim=self.state_size, activation='relu'))
-        model.add(Dense(24, activation='relu'))
+        model.add(Dense(4, input_dim=self.state_size, activation='relu'))
+        model.add(Dense(8, activation='relu'))
         model.add(Dense(self.action_size, activation='linear'))
         model.compile(loss='mse',
                       optimizer=Adam(lr=self.learning_rate))
@@ -49,6 +51,7 @@ class DQNAgent:
         self.memory.append((state, action, reward, next_state, done))
 
     def act(self, state):
+        print("Epsilon = {}".format(self.epsilon))
         if np.random.rand() <= self.epsilon:
             return np.random.randint(0, 3)
 
@@ -91,12 +94,12 @@ class DQNAgent:
 
 
 def computeReward(state, action, input_data):
-    if state[action] <= 25:
+    if state[action] <= 25.0 / MAX_RANGE:
         return -500
 
-    if math.sqrt(math.pow(state[0] - input_data[0], 2) + math.pow(state[1] - input_data[1], 2) + math.pow(state[2] - input_data[2], 2)) <= 20:
+    if math.sqrt(math.pow(state[0] - input_data[0], 2) + math.pow(state[1] - input_data[1], 2) + math.pow(
+            state[2] - input_data[2], 2)) <= 20.0 / MAX_RANGE:
         return -200
-
 
     if action != 1 and state[1] == max(state):
         return -200
@@ -118,7 +121,7 @@ if __name__ == "__main__":
     state_size = 3  # (signaux envoyes par 3 capteurs)
     action_size = 3
     agent = DQNAgent(state_size, action_size)
-    episodes = 5000
+    episodes = 10000
 
     ACTION_NAME = ["L", "F", "R"]
 
@@ -130,7 +133,7 @@ if __name__ == "__main__":
 
     state = state.split(",")
 
-    state = [int(a) for a in state]
+    state = [int(a) / MAX_RANGE for a in state]
 
     st = state
     # Iterate the game
@@ -140,8 +143,6 @@ if __name__ == "__main__":
         cpt = 0
 
         while True:
-
-            # Obtenir les observations
 
             # Decide action
 
@@ -158,7 +159,7 @@ if __name__ == "__main__":
 
             # Reward i
             input_data = bluetooth.readline().decode().replace("\r", "").replace("\n", "").split(",")
-            input_data = [int(a) for a in input_data]
+            input_data = [int(a) / MAX_RANGE for a in input_data]
 
             reward = computeReward(st, action, input_data)
 
@@ -193,4 +194,5 @@ if __name__ == "__main__":
 
         f = open("reward.txt", "a+")
 
-        f.write(str(cpt) + "\n")
+        if (cpt != 0):
+            f.write(str(cpt) + "\n")
