@@ -28,10 +28,15 @@ class DQNAgent:
         self.action_size = action_size
         self.memory = deque(maxlen=2000)
         self.gamma = 0.95  # discount rate
-        self.epsilon = 0.2939294464899635  # exploration rate
+        self.epsilon = 0.95  # exploration rate
         self.epsilon_min = 0.01
-        self.epsilon_decay = 0.99995
+        self.epsilon_decay = 0.955
         self.learning_rate = 0.001
+
+        if Path("expo.txt").is_file():
+            lines = [line.rstrip('\n') for line in open('expo.txt')]
+            self.epsilon = float(lines[0])
+
         if Path("model.json").is_file():
             self.model = self.load()
         else:
@@ -74,6 +79,10 @@ class DQNAgent:
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
 
+            epo = open("expo.txt", "w+")
+            epo.write(str(self.epsilon)  + "\n")
+            epo.close()
+
     def save(self):
         # serialize model to JSON
         model_json = self.model.to_json()
@@ -94,28 +103,23 @@ class DQNAgent:
 
 
 def computeReward(state, action, input_data):
+    print(state[action])
     if state[action] <= 25.0 / MAX_RANGE:
         return -500
 
-    if math.sqrt(math.pow(state[0] - input_data[0], 2) + math.pow(state[1] - input_data[1], 2) + math.pow(
-            state[2] - input_data[2], 2)) <= 20.0 / MAX_RANGE:
-        return -200
 
     if action != 1 and state[1] == max(state):
-        return -200
+        return 10
 
     if action == 1 and state[1] == max(state):
         return 500
 
-    if state[action] == min(state):
-        return -50
+
 
     return 10
 
 
 if __name__ == "__main__":
-    # initialize gym environment and the agent
-
     bluetooth.flushInput()  # This gives the bluetooth a little kick
 
     state_size = 3  # (signaux envoyes par 3 capteurs)
@@ -127,8 +131,6 @@ if __name__ == "__main__":
 
     state = bluetooth.readline()
 
-    # print(state)
-    # Parse la state
     state = str(state.decode()).replace("\r\n", "")
 
     state = state.split(",")
@@ -144,12 +146,8 @@ if __name__ == "__main__":
 
         while True:
 
-            # Decide action
-
             state = np.array(state).reshape(1, 3)
             action = agent.act(state)
-
-            # print(ACTION_NAME[action])
 
             # Advance the game to the next frame based on the action.
             bluetooth.write(
@@ -190,9 +188,13 @@ if __name__ == "__main__":
         # train the agent with the experience of the episode
         agent.replay(cpt)
 
-        # bluetooth.write(b"" + str.encode(str("A")))
+        bluetooth.write(b"" + str.encode(str("A")))
 
         f = open("reward.txt", "a+")
 
+
+
         if (cpt != 0):
             f.write(str(cpt) + "\n")
+
+        break
